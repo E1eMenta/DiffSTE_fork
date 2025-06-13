@@ -14,9 +14,9 @@ from src.dataset.utils import prepare_npy_image_mask, normalize_image
 def create_parser():
     parser = ArgumentParser()
     parser.add_argument("--seed", type=int, default=13)
-    parser.add_argument("--ckpt_path", type=str, required=True)
-    parser.add_argument("--in_image", type=str, required=True)
-    parser.add_argument("--in_mask", type=str, required=True)
+    parser.add_argument("--ckpt_path", type=str)
+    parser.add_argument("--in_image", type=str)
+    parser.add_argument("--in_mask", type=str)
     parser.add_argument("--out_dir", default="output")
     parser.add_argument("--text", type=str)
     parser.add_argument("--font", type=str, default="")
@@ -26,7 +26,16 @@ def create_parser():
     parser.add_argument("--num_sample_per_image", default=3, type=int)
     parser.add_argument("--guidance_scale", default=7.5, type=float)
     parser.add_argument("--no_cuda", action="store_true")
-    return parser
+
+    opt = parser.parse_args()
+
+    opt.ckpt_path = "diffste.ckpt"
+    opt.in_image = "examples/sample0.png"
+    opt.in_mask = "examples/mask0.png"
+    opt.text = "BlaBla"
+    opt.out_dir = "output"
+
+    return opt
 
 
 def main(opt):
@@ -36,9 +45,7 @@ def main(opt):
 
     image = Image.open(opt.in_image)
     mask = Image.open(opt.in_mask).convert("1")
-    raw_image, mask, masked_image, mask_coordinate = prepare_npy_image_mask(
-        image, mask
-    )
+    raw_image, mask, masked_image, mask_coordinate = prepare_npy_image_mask(image, mask)
 
     if opt.instruction is not None:
         style = opt.instruction
@@ -48,7 +55,7 @@ def main(opt):
         color = opt.color
         font = opt.font
         style = prepare_style_chars(char, [font, color])
-    
+
     torch.manual_seed(opt.seed)
     batch = {
         "image": torch.from_numpy(raw_image).unsqueeze(0).to(device),
@@ -63,7 +70,7 @@ def main(opt):
         "num_inference_steps": opt.num_inference_steps,
         "num_sample_per_image": opt.num_sample_per_image,
         "guidance_scale": opt.guidance_scale,
-        "generator": torch.Generator(model.device).manual_seed(opt.seed)
+        "generator": torch.Generator(model.device).manual_seed(opt.seed),
     }
 
     with torch.no_grad():
@@ -71,18 +78,18 @@ def main(opt):
     os.makedirs(opt.out_dir, exist_ok=True)
     keys = results.keys()
     for i, k in enumerate(keys):
-        img = torch.cat([
-            ((batch["image"][i:i+1].cpu()) / 2. + 0.5).clamp(0., 1.),
-            ((batch["masked_image"][i:i+1].cpu()) / 2. + 0.5).clamp(0., 1.),
-            results[k]
-        ])
-        grid = make_grid(img, nrow=5, padding=1)
-        ToPILImage()(grid).save(
-            f"{opt.out_dir}/{k}-grid.png"
+        img = torch.cat(
+            [
+                ((batch["image"][i : i + 1].cpu()) / 2.0 + 0.5).clamp(0.0, 1.0),
+                ((batch["masked_image"][i : i + 1].cpu()) / 2.0 + 0.5).clamp(0.0, 1.0),
+                results[k],
+            ]
         )
+        grid = make_grid(img, nrow=5, padding=1)
+        ToPILImage()(grid).save(f"{opt.out_dir}/{k}-grid.png")
 
 
 if __name__ == "__main__":
-    parser = create_parser()
-    opt = parser.parse_args()
+    opt = create_parser()
+
     main(opt)
