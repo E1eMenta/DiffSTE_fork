@@ -40,7 +40,7 @@ def create_parser():
 
 def main(opt):
     model = CharInpaintTrainer.load_from_checkpoint(opt.ckpt_path)
-    device = "cpu" if opt.no_cuda else "cuda"
+    device = "cpu"
     model = model.to(device)
 
     image = Image.open(opt.in_image)
